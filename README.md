@@ -122,3 +122,89 @@ If you encounter issues (e.g., Weaviate stuck, stale data, or persistent errors)
    ```
 
 This will ensure a clean state for all services. Useful for troubleshooting, development, or sharing a reproducible environment.
+
+## Weaviate maintenance: targeted cleanup, backup, and restore
+
+Weaviate stores its data in the named Docker volume `rag-iac_weaviate-data` (mounted at `/var/lib/weaviate`). Here are safe, minimal recipes to maintain that data.
+
+Important notes
+- Prefer stopping Weaviate before backup/restore to ensure consistency.
+- Keep `CLUSTER_HOSTNAME` stable (already set to `node1` in `compose.yml`). If it changes, stale Raft state may require a targeted cleanup.
+
+### Quick targeted cleanup (only Weaviate data)
+
+This clears Weaviate’s state without touching Ollama models.
+
+```sh
+# Stop the stack (or at least Weaviate)
+docker compose down
+
+# Remove only Weaviate data (irreversible)
+docker volume rm rag-iac_weaviate-data
+
+# Start and validate
+make smoke
+```
+
+### Offline backup of Weaviate data
+
+Creates a timestamped tarball under `./backups/`. Best done with Weaviate stopped.
+
+```sh
+# Stop only Weaviate to get a consistent snapshot
+docker compose stop weaviate
+
+# Ensure backups folder exists
+mkdir -p backups
+
+# Create a compressed backup of the volume
+docker run --rm \
+   -v rag-iac_weaviate-data:/data:ro \
+   -v "$PWD/backups:/backup" \
+   alpine:3.19 sh -c "tar -C /data -czf /backup/weaviate-$(date +%Y%m%d-%H%M%S).tgz . && ls -lh /backup/weaviate-*.tgz"
+
+# Bring Weaviate back up
+docker compose start weaviate
+```
+
+Optional: backup Ollama models as well
+
+```sh
+docker run --rm \
+   -v rag-iac_ollama-data:/data:ro \
+   -v "$PWD/backups:/backup" \
+   alpine:3.19 sh -c "tar -C /data -czf /backup/ollama-$(date +%Y%m%d-%H%M%S).tgz . && ls -lh /backup/ollama-*.tgz"
+```
+
+### Restore Weaviate from a backup
+
+Restores a previously created tarball into the `rag-iac_weaviate-data` volume.
+
+```sh
+# Stop the stack (or at least Weaviate)
+docker compose down
+
+# Pick the backup file name (from ./backups)
+BACKUP_FILE="weaviate-YYYYMMDD-HHMMSS.tgz"  # replace with your filename
+
+# Restore into the (emptied) volume
+docker run --rm \
+   -v rag-iac_weaviate-data:/data \
+   -v "$PWD/backups:/backup" \
+   alpine:3.19 sh -c "rm -rf /data/* && tar -C /data -xzf /backup/$BACKUP_FILE && ls -la /data | head"
+
+# Start and validate
+docker compose up -d
+make smoke
+```
+
+### Verify backups quickly
+
+```sh
+tar -tzf backups/weaviate-*.tgz | head
+```
+
+### Tips and FAQs
+- If Weaviate reports 503 and logs show Raft join errors, prefer the targeted cleanup above instead of a full reset.
+- Backups can be large; ensure sufficient disk space before creating/restoring.
+- You can also script these as `make` targets (e.g., `make backup-weaviate`, `make restore-weaviate`). They’re left out by default to keep the stack minimal.

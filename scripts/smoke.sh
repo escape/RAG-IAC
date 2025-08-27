@@ -27,12 +27,27 @@ TXT
 fi
 
 # Wait for Weaviate to be ready from inside the Jupyter container (network context matches ingestion)
-for i in {1..60}; do
+# Try up to 180s, print container status every 10s
+echo "[smoke] Waiting for Weaviate readiness..."
+code="000"
+for i in {1..180}; do
+  # ensure jupyter exists before probing (it may still be starting on fresh runs)
+  docker compose --env-file .env up -d jupyter >/dev/null 2>&1 || true
   code=$(docker compose exec jupyter curl -s -o /dev/null -w "%{http_code}" http://weaviate:8080/v1/.well-known/ready || true)
-  [ "$code" = "200" ] && break
+  if [ "$code" = "200" ]; then
+    break
+  fi
+  if (( i % 10 == 0 )); then
+    echo "[smoke] Still waiting... ($i s) http=$code"
+    docker compose --env-file .env ps weaviate || true
+  fi
   sleep 1
 done
-[ "$code" = "200" ] || { echo "[smoke] weaviate not ready (still $code)"; exit 1; }
+if [ "$code" != "200" ]; then
+  echo "[smoke] weaviate not ready (still $code). Recent logs:" >&2
+  docker compose --env-file .env logs --no-color --since=5m weaviate | tail -n 120 >&2 || true
+  exit 1
+fi
 
 
 # Always run Python inside the jupyter container (container-native style)

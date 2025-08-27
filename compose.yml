@@ -1,7 +1,8 @@
 services:
   ollama:
     image: ollama/ollama:latest
-    ports: ["${OLLAMA_PORT}:11434"]      # e.g. 11435:11434
+    ports:
+      - "${OLLAMA_PORT}:11434"      # e.g. 11435:11434
     volumes:
       - ollama-data:/root/.ollama        # refer to the static key below
     healthcheck:
@@ -12,13 +13,17 @@ services:
 
   weaviate:
     image: semitechnologies/weaviate:1.31.2
-    ports: ["${WEAVIATE_PORT}:8080"]     # e.g. 8081:8080
+    ports:
+      - "${WEAVIATE_PORT}:8080"     # e.g. 8081:8080
     environment:
-      - QUERY_DEFAULTS_LIMIT=25
-      - PERSISTENCE_DATA_PATH=/var/lib/weaviate
-      - AUTHENTICATION_ANONYMOUS_ACCESS_ENABLED=true
-      - AUTOSCHEMA_ENABLED=true
-      - DEFAULT_VECTORIZER_MODULE=none  # e.g. text2vec-nomic-embed-text
+      QUERY_DEFAULTS_LIMIT: "25"
+      PERSISTENCE_DATA_PATH: "/var/lib/weaviate"
+      AUTHENTICATION_ANONYMOUS_ACCESS_ENABLED: "true"
+      AUTOSCHEMA_ENABLED: "true"
+      DEFAULT_VECTORIZER_MODULE: "none"  # e.g. text2vec-nomic-embed-text
+      # Stabilize single-node Raft identity across restarts and allow more time to load existing state
+      CLUSTER_HOSTNAME: "node1"
+      RAFT_BOOTSTRAP_TIMEOUT: "300"
     volumes:
       - weaviate-data:/var/lib/weaviate  # refer to the static key below
     healthcheck:
@@ -31,21 +36,28 @@ services:
   openwebui:
     image: ghcr.io/open-webui/open-webui:main
     depends_on: [ollama]
-    ports: ["3001:8080"]
+    ports:
+      - "3001:8080"
     environment:
       - OLLAMA_BASE_URL=http://ollama:11434
 
   # OPTIONAL
   jupyter:
-    image: jupyter/minimal-notebook:latest
+    image: jupyter/scipy-notebook:latest  # Includes more scientific packages
     depends_on: [ollama, weaviate]
-    ports: ["8889:8888"]
+    ports:
+      - "8889:8888"
     environment:
       - JUPYTER_TOKEN=dev
     volumes:
       - ./notebooks:/home/jovyan/work
       - ./scripts:/home/jovyan/scripts
       - ./data:/home/jovyan/data
+    # Install required packages on container start
+    command: >
+      bash -c "pip install --quiet --no-cache-dir
+      weaviate-client
+      && start-notebook.sh --NotebookApp.token='dev'"
 
 volumes:
   ollama-data: {}
