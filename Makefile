@@ -26,3 +26,19 @@ query:
 
 smoke:
 	bash scripts/smoke.sh
+
+# Utilities
+# estimate: estimate chunk counts for a file or directory (path=<file|dir>)
+estimate:
+	$(COMPOSE) up -d jupyter
+	CID=$$($(COMPOSE) ps -q jupyter); docker exec -it $$CID python /home/jovyan/scripts/estimate_chunks.py "$(path)"
+
+# split: split a large file into parts (file=path size=5MB [out=dir] [prefix=name])
+split:
+	$(COMPOSE) up -d jupyter
+	CID=$$($(COMPOSE) ps -q jupyter); docker exec -it $$CID python /home/jovyan/scripts/split_file.py "$(file)" "$(size)" "$(out)" "$(prefix)"
+
+# ingest-one: ingest a single file (file=path)
+ingest-one:
+	$(COMPOSE) up -d jupyter
+	CID=$$($(COMPOSE) ps -q jupyter); docker exec -it $$CID python /home/jovyan/scripts/ingest_one.py "$(file)"
