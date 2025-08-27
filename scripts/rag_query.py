@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-import os, sys, requests, textwrap
+import os, sys, time, requests, textwrap, json
 
 IN_DOCKER = os.path.exists("/.dockerenv") or os.environ.get("IN_DOCKER") == "1"
 OLLAMA   = "http://ollama:11434"   if IN_DOCKER else f"http://localhost:{os.getenv('OLLAMA_PORT','11434')}"
@@ -8,6 +8,24 @@ WEAVIATE = "http://weaviate:8080"  if IN_DOCKER else f"http://localhost:{os.gete
 EMBED_MODEL = os.getenv("EMBED_MODEL","nomic-embed-text")
 GEN_MODEL   = os.getenv("GEN_MODEL","phi3:mini")
 CLASS_NAME  = "DocChunk"
+
+def wait_ready(timeout=60):
+  last_err = None
+  for _ in range(timeout):
+    try:
+      # Weaviate readiness
+      r1 = requests.get(f"{WEAVIATE}/v1/.well-known/ready", timeout=2)
+      r1.raise_for_status()
+      # Ollama tags for liveness
+      r2 = requests.get(f"{OLLAMA}/api/tags", timeout=2)
+      r2.raise_for_status()
+      return True
+    except Exception as e:
+      last_err = str(e)
+      time.sleep(1)
+  if last_err:
+    print(json.dumps({"last_ready_error": last_err}))
+  return False
 
 def embed(text):
     # Preferred modern endpoint
@@ -18,48 +36,51 @@ def embed(text):
     r.raise_for_status()
     # /api/embed returns {"embeddings":[...]} ; /api/embeddings returns {"embedding":[...]}
     data = r.json()
-    return (data.get("embedding") 
-            or (data.get("embeddings") or [None])[0])
+    vec = (data.get("embedding") or (data.get("embeddings") or [None])[0])
+    return vec
 
 def retrieve(q: str, top_k: int = 5):
-    vec = embed(q)
-    gql = {
-        "query": f"""
-        {{
-          Get {{
-            {CLASS_NAME}(nearVector: {{vector: [{",".join(map(str, vec))}]}}, limit: {top_k}) {{
-              doc_id
-              chunk
-            }}
-          }}
+  vec = embed(q)
+  if vec is None:
+    raise ValueError("Embedding returned None (empty query or model error)")
+  gql = {
+    "query": f"""
+    {{
+      Get {{
+        {CLASS_NAME}(nearVector: {{vector: [{",".join(map(str, vec))}]}}, limit: {top_k}) {{
+          doc_id
+          chunk
         }}
-        """
-    }
-    r = requests.post(f"{WEAVIATE}/v1/graphql", json=gql)
-    r.raise_for_status()
-    data = r.json().get("data", {})
-    hits = (data.get("Get", {}) or {}).get(CLASS_NAME, []) or []
-    return [h.get("chunk","") for h in hits if "chunk" in h]
+      }}
+    }}
+    """
+  }
+  r = requests.post(f"{WEAVIATE}/v1/graphql", json=gql)
+  r.raise_for_status()
+  data = r.json().get("data", {})
+  hits = (data.get("Get", {}) or {}).get(CLASS_NAME, []) or []
+  return [h.get("chunk","") for h in hits if "chunk" in h]
 
 def generate(prompt: str):
-  r = requests.post(f"{OLLAMA}/api/generate", json={"model": GEN_MODEL, "prompt": prompt})
+  r = requests.post(f"{OLLAMA}/api/generate", json={"model": GEN_MODEL, "prompt": prompt, "stream": False})
   r.raise_for_status()
-  print("Raw response:", r.text)
-  # Ollama streams JSON objects, one per line
-  responses = []
-  for line in r.text.strip().splitlines():
-    try:
-      obj = requests.models.complexjson.loads(line)
-      resp = obj.get("response")
-      if resp:
-        responses.append(resp)
-    except Exception as e:
-      print(f"Error parsing line: {line}\n{e}")
-  return "".join(responses).strip()
+  data = r.json()
+  return (data.get("response") or "").strip()
 
 if __name__ == "__main__":
-  q = sys.argv[1] if len(sys.argv) > 1 else "What are the key points?"
-  ctx = retrieve(q, top_k=1)
+  # Wait for services
+  wait_ready(60)
+  # Get question from arg or env Q, fallback to default
+  q = sys.argv[1] if len(sys.argv) > 1 else os.getenv("Q", "").strip()
+  q = " ".join(q.split())
+  if not q:
+    print(json.dumps({"error": "Empty question. Pass as: make query q='Your question'"}))
+    sys.exit(2)
+  try:
+    ctx = retrieve(q, top_k=3)
+  except Exception as e:
+    print(json.dumps({"error": str(e)}))
+    sys.exit(1)
   context_str = "\n\n".join(ctx)
   indented_context = textwrap.indent(context_str, "  ")
   prompt = (

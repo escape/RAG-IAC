@@ -17,15 +17,19 @@ def estimate_for_text(text: str):
     return L, chunks
 
 def main():
-    path = sys.argv[1] if len(sys.argv) > 1 else "data/raw"
-    p = Path(path)
+    import argparse
+    ap = argparse.ArgumentParser(description="Estimate chunk counts for a file or directory")
+    ap.add_argument("path", nargs="?", default="data/raw", help="File or directory path")
+    ap.add_argument("--summary-only", action="store_true", help="Print only totals, omit per-file details")
+    args = ap.parse_args()
+    p = Path(args.path)
     files = []
     if p.is_dir():
         files = [Path(fp) for fp in glob.glob(f"{p}/**/*", recursive=True) if os.path.isfile(fp)]
     elif p.is_file():
         files = [p]
     else:
-        print(json.dumps({"error": f"Path not found: {path}"}))
+        print(json.dumps({"error": f"Path not found: {args.path}"}))
         sys.exit(1)
 
     results = []
@@ -53,7 +57,7 @@ def main():
         total_chars += chars
         total_chunks += chunks
 
-    print(json.dumps({
+    out = {
         "path": str(p),
         "files": len(results),
         "total_bytes": total_bytes,
@@ -62,8 +66,10 @@ def main():
         "max_len": MAX_LEN,
         "overlap": OVERLAP,
         "step": STEP,
-        "details": results,
-    }))
+    }
+    if not args.summary_only:
+        out["details"] = results
+    print(json.dumps(out))
 
 if __name__ == "__main__":
     main()

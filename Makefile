@@ -20,9 +20,11 @@ ingest:
 	$(COMPOSE) up -d jupyter
 	docker exec -it $(JUPYTER_CID) python /home/jovyan/scripts/ingest.py
 
+# query: run a RAG query (use: make query q='Your question')
 query:
 	$(COMPOSE) up -d jupyter
-	docker exec -it $(JUPYTER_CID) python /home/jovyan/scripts/rag_query.py "$(q)"
+	CID=$$($(COMPOSE) ps -q jupyter); \
+		docker exec -e Q="$(q)" -it $$CID python /home/jovyan/scripts/rag_query.py
 
 smoke:
 	bash scripts/smoke.sh
@@ -42,3 +44,19 @@ split:
 ingest-one:
 	$(COMPOSE) up -d jupyter
 	CID=$$($(COMPOSE) ps -q jupyter); docker exec -it $$CID python /home/jovyan/scripts/ingest_one.py "$(file)"
+
+# ingest-batch-file: split a large file and ingest parts (file=path size=5MB [out=dir] [prefix=name])
+ingest-batch-file:
+	$(COMPOSE) up -d jupyter
+	CID=$$($(COMPOSE) ps -q jupyter); docker exec -it $$CID python /home/jovyan/scripts/ingest_batch.py --file "$(file)" --size "$(size)" --out "$(out)" --prefix "$(prefix)" $(if $(filter true,$(QUIET)),--summary-only,)
+
+# ingest-batch-dir: ingest all files matching a pattern (dir=path [pattern=*.txt] [recursive=true|false])
+ingest-batch-dir:
+	$(COMPOSE) up -d jupyter
+	CID=$$($(COMPOSE) ps -q jupyter); docker exec -it $$CID python /home/jovyan/scripts/ingest_batch.py --dir "$(dir)" --pattern "$(pattern)" $(if $(filter false,$(recursive)),--no-recursive,) $(if $(filter true,$(QUIET)),--summary-only,)
+
+# json-to-text: convert ChatGPT-like JSON exports to Q/A markdown files
+# input should be reachable inside the container (e.g., /home/jovyan/data/..)
+json-to-text:
+	$(COMPOSE) up -d jupyter
+	CID=$$($(COMPOSE) ps -q jupyter); docker exec -it $$CID python /home/jovyan/scripts/json_to_text.py --input "$(input)" --out-dir "$(out)" --pattern "$(pattern)"
