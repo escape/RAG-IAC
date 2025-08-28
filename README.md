@@ -41,6 +41,70 @@ These commands simplify stack management and troubleshooting. Use `make reset` t
    - Open Jupyter at [http://localhost:8889](http://localhost:8889)
    - Try the provided notebooks for ingestion and querying.
 
+## Data prep and ingestion utilities
+
+All utilities run inside the Jupyter container. Paths must be container paths (your repo is mounted at `/home/jovyan`). Examples below assume input files live under `/home/jovyan/data/...`.
+
+Tips
+- Add `QUIET=true` to batch operations to print only a compact JSON summary.
+- Estimation can be very verbose on large folders; use summary-only.
+
+### Convert JSON exports to Q/A markdown
+Turn ChatGPT-like conversation JSON into many small markdown files ready for ingestion.
+
+Examples
+- Convert one JSON file to a folder of `.md` files:
+   - make json-to-text input=/home/jovyan/data/raw/conversations.json out=/home/jovyan/data/raw/json2txt
+- Optionally filter by filename pattern during conversion (keeps only matching titles/ids if the script supports it):
+   - make json-to-text input=/home/jovyan/data/raw/conversations.json out=/home/jovyan/data/raw/json2txt pattern='*'
+
+Output goes to the `out` directory; each message pair becomes `Title__0001.md`, etc.
+
+### Estimate chunks before ingest
+Get per-file and total chunk counts using the current splitter settings (size ~900, overlap ~150).
+
+Examples
+- Whole folder (totals only):
+   - make estimate path=/home/jovyan/data/raw/json2txt QUIET=true
+- Single file (full detail):
+   - make estimate path=/home/jovyan/data/raw/one_big.md
+
+### Split a large file into parts
+Useful for giant files that you want to ingest in parallel or track progress on.
+
+Examples
+- Split a 200MB file into ~5MB parts:
+   - make split file=/home/jovyan/data/raw/one_big.md size=5MB out=/home/jovyan/data/raw/parts prefix=big
+
+Creates `out/prefix.part-0001.md`, etc.
+
+### Ingest data
+Two common flows are supported:
+
+1) Split-and-ingest a single large file
+- In one shot: split then ingest the parts
+   - make ingest-batch-file file=/home/jovyan/data/raw/one_big.md size=5MB out=/home/jovyan/data/raw/parts prefix=big QUIET=true
+
+2) Ingest a directory of files
+- Non-recursive (default) with an explicit filename pattern:
+   - make ingest-batch-dir dir=/home/jovyan/data/raw/json2txt pattern='*.md' QUIET=true
+- Recursive mode:
+   - make ingest-batch-dir dir=/home/jovyan/data/raw recursive=true QUIET=true
+
+Notes
+- QUIET mode returns a single final JSON summary line with totals (ingested chunks, files processed).
+- The scripts wait for Ollama and Weaviate to be ready before starting.
+
+### Query
+Ask questions against your ingested corpus using retrieval + local LLM generation.
+
+Example
+- make query q='What are the key steps in the creative methodology breakdown?'
+
+Notes
+- The query path validates service readiness and will error if the question is empty.
+- Uses the same embeddings/vector store as the ingestion utilities.
+
 ## Stack Components
 - **Ollama:** Runs LLMs locally (e.g., phi3:mini). No cloud required.
 - **Weaviate:** Stores and retrieves vector embeddings for context-aware queries.

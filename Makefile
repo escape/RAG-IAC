@@ -33,7 +33,7 @@ smoke:
 # estimate: estimate chunk counts for a file or directory (path=<file|dir>)
 estimate:
 	$(COMPOSE) up -d jupyter
-	CID=$$($(COMPOSE) ps -q jupyter); docker exec -it $$CID python /home/jovyan/scripts/estimate_chunks.py "$(path)"
+	CID=$$($(COMPOSE) ps -q jupyter); docker exec -it $$CID python /home/jovyan/scripts/estimate_chunks.py "$(path)" $(if $(filter true,$(QUIET)),--summary-only,)
 
 # split: split a large file into parts (file=path size=5MB [out=dir] [prefix=name])
 split:
