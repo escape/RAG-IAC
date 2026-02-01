@@ -1,1 +1,20 @@
+# Data (ignore private files, keep directory structure)
+data/raw/*.json
+data/raw/*.md
+data/raw/json2txt/
+data/processed/
+!data/raw/.gitkeep
+!data/processed/.gitkeep
+
+# Docker volumes & local cache
+.env.local
+*.log
+
+# Backups
+backups/
+
+# OS
 .DS_Store
+__pycache__/
+*.pyc
+.venv/
