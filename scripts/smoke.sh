@@ -9,7 +9,7 @@ fi
 
 # Ensure Ollama model is available before proceeding
 echo "[smoke] Bringing stack up..."
-docker compose --env-file .env up -d --no-build --pull always
+docker compose --env-file .env up -d
 
 echo "[smoke] Ensuring Ollama models are available..."
 # Pull embedding model for document indexing
@@ -53,7 +53,7 @@ fi
 # Always run Python inside the jupyter container (container-native style)
 run_py () {
   # ensure jupyter is up (idempotent)
-  docker compose --env-file .env up -d --no-build --pull always jupyter >/dev/null
+  docker compose --env-file .env up -d jupyter >/dev/null
 
   # get container id
   cid="$(docker compose ps -q jupyter)"
