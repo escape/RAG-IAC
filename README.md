@@ -2,6 +2,25 @@
 
 A reproducible, minimal stack for learning, experimenting, and developing sustainable Retrieval-Augmented Generation (RAG) systems locally. Designed for rapid prototyping, collaborative learning, and easy extension to CI/CD and custom LLM training.
 
+## Prerequisites
+
+Before you begin, ensure you have the following installed:
+
+- **Docker & Docker Compose:** Required to run the stack locally.
+  - [Install Docker Desktop](https://www.docker.com/products/docker-desktop) (includes Docker Compose)
+  - Verify installation:
+    ```sh
+    docker --version
+    docker compose version
+    ```
+  - **Disk space:** At least 20GB free (for models, data, and volumes)
+  - **RAM:** At least 8GB available (recommend 16GB+ for smooth operation)
+
+- **Make:** For running convenience commands (optional but recommended)
+  - macOS: Pre-installed or install via `xcode-select --install`
+  - Linux: `sudo apt-get install make` (Debian/Ubuntu)
+  - Windows: Install [GNU Make for Windows](https://gnuwin32.sourceforge.net/packages/make.htm) or use WSL2 with Linux commands
+
 ## Project Overview
 This project provides a simple, local-first RAG pipeline using Infrastructure as Code principles for reproducible, maintainable environments:
 - **Ollama** for running LLMs locally
