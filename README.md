@@ -1,4 +1,4 @@
-# Minimal Local RAG Stack
+# Minimal Local RAG Stack (1)
 
 A reproducible, minimal stack for learning, experimenting, and developing sustainable Retrieval-Augmented Generation (RAG) systems locally. Designed for rapid prototyping, collaborative learning, and easy extension to CI/CD and custom LLM training.
 
