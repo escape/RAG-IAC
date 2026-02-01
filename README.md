@@ -2,6 +2,8 @@
 
 A reproducible, minimal stack for learning, experimenting, and developing sustainable Retrieval-Augmented Generation (RAG) systems locally. Designed for rapid prototyping, collaborative learning, and easy extension to CI/CD and custom LLM training.
 
+![RAG Stack Test](test-01.jpg)
+
 ## Prerequisites
 
 Before you begin, ensure you have the following installed:
