@@ -14,7 +14,7 @@ The goal is to empower anyone to learn, work, and build with RAGs on their own h
 ## Quickstart
 1. **Clone the repository:**
    ```sh
-   git clone <your-repo-url>
+   git clone https://github.com/escape/RAG-IAC.git
    cd rag-iac
    ```
 2. **Start the stack:**
