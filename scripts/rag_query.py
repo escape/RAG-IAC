@@ -62,7 +62,7 @@ def retrieve(q: str, top_k: int = 5):
   return [h.get("chunk","") for h in hits if "chunk" in h]
 
 def generate(prompt: str):
-  r = requests.post(f"{OLLAMA}/api/generate", json={"model": GEN_MODEL, "prompt": prompt, "stream": False})
+  r = requests.post(f"{OLLAMA}/api/generate", json={"model": GEN_MODEL, "prompt": prompt, "stream": False, "options": {"num_ctx": 2048}})
   r.raise_for_status()
   data = r.json()
   return (data.get("response") or "").strip()

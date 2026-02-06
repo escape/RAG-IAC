@@ -50,7 +50,7 @@ if __name__ == "__main__":
     for _ in range(60):
         try:
             requests.get(f"{WEAVIATE}/v1/.well-known/ready").raise_for_status()
-            requests.post(f"{OLLAMA}/api/tags").raise_for_status()
+            requests.get(f"{OLLAMA}/api/tags").raise_for_status()
             break
         except Exception:
             time.sleep(1)
